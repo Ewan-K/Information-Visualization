@@ -8,4 +8,4 @@ Run 'python main.py' in command line to start the host. Then input 'http://local
 
 ## Guideline
 
-Input from '累计确诊' '累计死亡' '累计治愈' '新增确诊' '新增死亡' '新增治愈' '感染率' at the bottom textbox to set the data type of axis in bubble chart.
+Input '累计确诊' or '累计死亡' or '累计治愈' or '新增确诊' or '新增死亡' or '新增治愈' or '感染率' to the bottom textbox to set the data type of axis in bubble chart.
