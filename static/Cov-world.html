@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Cov-Project</title>
+    <link rel="stylesheet" href="/static/css/earth.css">
+    <link rel="stylesheet" href="/static/css/d3tip.css">
+    <link rel="stylesheet" href="/static/css/nCovnxt.css">
+    <link rel="icon" href="/static/music_level.ico" />
+    <script src="/static/js/d3.min.js"></script>
+    <script src="/static/js/topojson.js"></script>
+    <script src="/static/js/library/d3-tip.js"></script>
+    <script src="/static/js/library/moment.min.js"></script>
+    <script src="/static/js/color-strategies.js"></script>
+
+</head>
+
+<body style="text-align: center">
+    <svg width="1650" height="920" id="firstsvg" class="svgs" style="background-color: #333333"></svg>
+
+    <svg width="1650" height="920" id="mainsvg" class="svgs" style="background-color: #333333"></svg>
+
+    <script>
+        let svg1 = d3.select('#firstsvg');
+        const width1 = +svg1.attr('width');
+        const height1 = +svg1.attr('height');
+        const margin1 = { top: 60, right: 60, bottom: 10, left: 60 };
+        const innerWidth1 = width1 - margin1.left - margin1.right;
+        const innerHeight1 = height1 - margin1.top - margin1.bottom;
+        const g = svg1.append('g').attr('id', 'firstgroup')
+            .attr('transform', `translate(${margin1.left}, ${margin1.top})`);
+
+        // convert dataPath to svgPath; 
+        const projection = d3.geoNaturalEarth1();
+        const pathGenerator = d3.geoPath().projection(projection);
+
+        let worldmeta;
+
+        d3.json('./static/data/countries-110m.json').then(
+            function (data) {
+                // convert topo-json to geo-json; 
+                worldmeta = topojson.feature(data, data.objects.countries);
+
+                projection.fitSize([innerWidth, innerHeight], worldmeta);
+
+                // perform data-join; 
+                const paths = g.selectAll('path')
+                    .data(worldmeta.features, d => d.properties.name)
+                    .enter().append('path')
+                    .attr('d', pathGenerator)
+                    .attr('stroke', 'black')
+                    .attr('stroke-width', 1)
+                    .on('mouseover', function (d) {
+                        d3.select(this)
+                            .attr("opacity", 0.5)
+                            .attr("stroke", "white")
+                            .attr("stroke-width", 6);
+                    })
+                    .on('mouseout', function (d) {
+                        d3.select(this)
+                            .attr("opacity", 1)
+                            .attr("stroke", "black")
+                            .attr("stroke-width", 1);
+                    })
+                    
+                var datas = [];
+
+                for (var i = 0; i < data.objects.countries.geometries.length; i++) {
+                    var name = data.objects.countries.geometries[i].properties.name;
+                    var value = i;
+                    datas[name] = value;
+                }
+
+                var linear = d3.scaleLinear()
+                    .domain([0, data.objects.countries.geometries.length - 1])
+                    .range([0, 1]);
+                console.log(data.objects.countries.geometries.length)
+                var b = d3.rgb(130, 140, 20);
+                var a = d3.rgb(255, 255, 180);
+
+                var color = d3.interpolate(a, b);
+
+
+                paths.style("fill", function (d, i) {
+                    var t = linear(datas[d.properties.name]);
+                    var col = color(t);
+                    return col.toString();
+                })
+            }
+        );
+    </script>
+    <script>
+        // get main SVG and its attributes & setting hyper-parameters;
+        const svg = d3.select("#mainsvg");
+        const width = +svg.attr("width");
+        const height = +svg.attr("height");
+        const margin = { top: 100, right: 120, bottom: 100, left: 120 };
+        const innerWidth = width - margin.left - margin.right;
+        const innerHeight = height - margin.top - margin.bottom;
+        const offset_x = world_offset_x;
+        const offset_y = world_offset_y;
+        let intervalId;
+        function test() {
+            clearInterval(intervalId);
+            svg.select("*").remove();
+            var valuex = document.getElementById("x_A").value;
+            var valuey = document.getElementById("y_A").value;
+            var valuer = document.getElementById("r_A").value;
+            const xValue = (d) => {
+                return Math.log2(d[valuex] / 50 + 1);
+            };
+            const yValue = (d) => {
+                return Math.log2(d[valuey] / 10 + 1);
+            };
+
+            const rValue = (d) => {
+                return Math.sqrt(d[valuer]) * 10;
+            };
+            let xScale, yScale;
+            let maxX, maxY;
+            let dates;
+            let keys;
+            const keys_to_color = world_color_qipao;
+            let aduration = 500;
+            let metapop;
+            let keyHint = "国家";
+
+            let xAxisLabel = valuex;
+            let yAxisLabel = valuey;
+
+            const renderinit = function (data, seq) {
+                // Linear Scale: Data Space -> Screen Space;
+                xScale = d3
+                    .scaleLinear()
+                    .domain([d3.min(data, xValue), d3.max(data, xValue)]) // "extent" is equivalent to [d3.min(data, xValue), d3.max(data, xValue)];
+                    .range([0, innerWidth])
+                    .nice();
+                // Introducing y-Scale;
+
+                yScale = d3
+                    .scaleLinear()
+                    .domain(d3.extent(data, yValue).reverse()) // remember to use reverse() to make y-axis start from the bottom;
+                    .range([0, innerHeight])
+                    .nice();
+
+                // generate maxX and maxY;
+                maxX = xScale(d3.max(data, xValue));
+                maxY = yScale(d3.max(data, yValue));
+
+                // The reason of using group is that nothing is rendered outside svg, so margin of svg is always blank while margin of group is rendered inside svg;
+                const g = svg
+                    .append("g")
+                    .attr("transform", `translate(${margin.left}, ${margin.top})`)
+                    .attr("id", "maingroup");
+
+                // Adding axes;
+                const yAxis = d3
+                    .axisLeft(yScale)
+                    .tickSize(-innerWidth)
+                    .tickPadding(10);
+                // .ticks(8); // .tickPadding is used to prevend intersection of ticks;
+                const xAxis = d3
+                    .axisBottom(xScale)
+                    .tickFormat(d3.format(".2s"))
+                    .tickSize(-innerHeight)
+                    .tickPadding(10);
+                // .ticks(20);
+
+                let yAxisGroup = g.append("g").call(yAxis).attr("id", "yaxis");
+                yAxisGroup
+                    .append("text")
+                    .attr("transform", `rotate(-90)`)
+                    .attr("x", -innerHeight / 2)
+                    .attr("y", -60)
+                    .attr("fill", "white")
+                    .text(yAxisLabel)
+                    .attr("text-anchor", "middle"); // Make label at the middle of axis.
+                yAxisGroup.selectAll(".domain").remove();
+
+                let xAxisGroup = g
+                    .append("g")
+                    .call(xAxis)
+                    .attr("transform", `translate(${0}, ${innerHeight})`)
+                    .attr("id", "xaxis");
+                xAxisGroup
+                    .append("text")
+                    .attr("y", 60)
+                    .attr("x", innerWidth / 2)
+                    .attr("fill", "white")
+                    .text(xAxisLabel);
+                xAxisGroup.selectAll(".domain").remove();
+
+                var keys = [
+                    "意大利",
+                    "美国",
+                    "西班牙",
+                    "德国",
+                    "伊朗",
+                    "法国",
+                    "韩国",
+                    "瑞士",
+                    "英国",
+                    "荷兰",
+                    "比利时",
+                    "奥地利",
+                    "挪威",
+                    "加拿大",
+                    "葡萄牙",
+                    "瑞典",
+                    "澳大利亚",
+                    "巴西",
+                    "以色列",
+                    "丹麦",
+                    "捷克",
+                    "爱尔兰",
+                    "日本",
+                    "芬兰",
+                    "冰岛",
+                ];
+
+                var legend_color = [
+                    "#ff1c12",
+                    "#EA7E53",
+                    "#E69D87",
+                    "#759AA0",
+                    "#386F38",
+                    "#ff6131",
+                    "#DD6B66",
+                    "#EEDD78",
+                    "#ffde1d",
+                    "#52f3a9",
+                    "#4B8E6F",
+                    "#73A373",
+                    "#47c0d4",
+                    "#ff8603",
+                    "#d54873",
+                    "#1e9d95",
+                    "#7289AB",
+                ];
+
+                // draw legend
+                var legend = d3
+                    .select("#maingroup")
+                    .selectAll(".legend")
+                    .data(keys)
+                    .enter()
+                    .append("g")
+                    .attr("class", "legend")
+                    .attr("transform", function (d, i) {
+                        return (
+                            "translate(" +
+                            ((innerWidth * 4) / 5 + 290) +
+                            "," +
+                            (i * 20 + 222) +
+                            ")"
+                        );
+                    });
+
+                // draw legend colored rectangles
+                legend
+                    .append("rect")
+                    .data(keys)
+                    .attr("x", 0)
+                    .attr("y", 0)
+                    .attr("width", 30)
+                    .attr("height", 15)
+                    .style("fill", function (d, i) {
+                        return keys_to_color[d];
+                    });
+
+                // draw legend text
+                legend
+                    .append("text")
+                    .data(keys)
+                    .attr("class", "legend_text")
+                    .attr("x", 40)
+                    .attr("y", 9)
+                    .attr("dy", ".2em")
+                    .attr("fill", "white")
+                    .style("text-anchor", "start")
+                    .text((d) => d);
+
+                myticks = [
+                    0,
+                    100,
+                    200,
+                    400,
+                    800,
+                    1600,
+                    3200,
+                    6400,
+                    12800,
+                    25600,
+                    51200,
+                    102400,
+                ];
+                for (let tid = 0; tid < myticks.length; tid++) {
+                    document
+                        .getElementById("xaxis")
+                        .getElementsByClassName("tick")
+                    [tid].getElementsByTagName("text")[0].textContent = myticks[tid];
+                }
+
+                myticks = [
+                    0,
+                    20,
+                    40,
+                    80,
+                    160,
+                    320,
+                    640,
+                    1280,
+                    2560,
+                    5120,
+                    10240,
+                    20480,
+                ];
+                for (let tid = 0; tid < myticks.length; tid++) {
+                    document
+                        .getElementById("yaxis")
+                        .getElementsByClassName("tick")
+                    [myticks.length - 1 - tid].getElementsByTagName(
+                        "text"
+                    )[0].textContent = myticks[tid];
+                }
+            };
+
+            const renderupdate = function (seq) {
+                const g = d3.select("#maingroup");
+                time = seq[0]["日期"];
+                split_time = time.split("/");
+                time = split_time[1] + "月" + split_time[2] + "日";
+                g.selectAll(".date_text").remove();
+                g.append("text")
+                    .data(["seq"])
+                    .attr("class", "date_text")
+                    .attr("x", innerWidth / 5 + 120)
+                    .attr("y", innerHeight / 10 - 20)
+                    .attr("dy", ".5em")
+                    .style("text-anchor", "end")
+                    .attr("fill", "#a6a5a5")
+                    .text(time);
+
+                circleupdates = g.selectAll("circle").data(seq, (d) => d[keyHint]);
+                circleenter = circleupdates
+                    .enter()
+                    .append("circle")
+                    .attr("cy", (datum) => {
+                        return yScale(yValue(datum));
+                    })
+                    .attr("cx", (datum) => {
+                        return xScale(xValue(datum));
+                    }) // use xSacle to re-scale data space (domain) and return the rescaled population;
+                    .attr("r", (datum) => rValue(datum))
+                    .attr("stroke-width", 2)
+                    .attr("stroke", "#cccccc")
+                    .attr("fill", function (d, i) {
+                        return keys_to_color[d[keyHint]];
+                    }) // #3fd4c5
+                    .attr("opacity", 0.85);
+                circleupdates
+                    .merge(circleenter)
+                    .transition()
+                    .ease(d3.easeLinear)
+                    .duration(aduration)
+                    .attr("cy", (datum) => {
+                        return yScale(yValue(datum));
+                    })
+                    .attr("cx", (datum) => {
+                        return xScale(xValue(datum));
+                    }) // use xSacle to re-scale data space (domain) and return the rescaled population;
+                    .attr("r", (datum) => rValue(datum));
+
+                textupdates = g.selectAll(".province_text").data(seq);
+                textenter = textupdates
+                    .enter()
+                    .append("text")
+                    .attr("class", "province_text")
+                    .attr("x", (datum) => {
+                        return xScale(xValue(datum)) + offset_x[datum[keyHint]];
+                    })
+                    .attr("y", (datum) => {
+                        return (
+                            yScale(yValue(datum)) -
+                            10 -
+                            rValue(datum) +
+                            offset_y[datum[keyHint]]
+                        );
+                    })
+                    .attr("dy", ".1em")
+                    .style("text-anchor", "middle")
+                    .attr("fill", "#333333")
+                    .text(function (d, i) {
+                        return d[keyHint];
+                    });
+
+                textupdates
+                    .merge(textenter)
+                    .transition()
+                    .ease(d3.easeLinear)
+                    .duration(aduration)
+                    .attr("x", (datum) => {
+                        return xScale(xValue(datum)) + offset_x[datum[keyHint]];
+                    })
+                    .attr("y", (datum) => {
+                        return (
+                            yScale(yValue(datum)) -
+                            10 -
+                            rValue(datum) +
+                            offset_y[datum[keyHint]]
+                        );
+                    });
+            };
+
+            d3.csv("./static/data/2019worldpopulation.csv").then((data) => {
+                data.forEach((datum) => {
+                    datum["2019年人口"] = +datum["人口"];
+                });
+                metapop = data;
+            });
+
+            d3.csv("./static/data/world.csv").then(function (data) {
+                totals = data.filter((datum) => {
+                    return datum[keyHint] === "总计";
+                });
+                data = data.filter((datum) => {
+                    return datum[keyHint] !== "总计";
+                });
+
+                data.forEach((datum) => {
+                    // pre-process the data;
+                    datum["确诊人数"] = +datum["确诊人数"];
+                    datum["治愈人数"] = +datum["治愈人数"];
+                    datum["死亡人数"] = +datum["死亡人数"];
+                    datum["新增确诊"] = +datum["新增确诊"];
+                    datum["现有确诊"] = +datum["现有确诊"];
+                    datum["新增治愈"] = +datum["新增治愈"];
+                    datum["新增死亡"] = +datum["新增死亡"];
+                    datum["感染率"] =
+                        datum["确诊人数"] /
+                        (metapop.find((x) => x[keyHint] === datum[keyHint])["2019年人口"] /
+                            10000.0);
+                });
+
+                // remove duplicated items;
+                data = data.filter((datum) => {
+                    var delete_dates = [];
+                    var flag = true;
+                    for (var i = 0; i < delete_dates.length; ++i) {
+                        if (datum["日期"] == delete_dates[i]) {
+                            flag = false;
+                            break;
+                        }
+                    }
+                    return flag;
+                }); // delete first day data;
+                alldates = Array.from(new Set(data.map((datum) => datum["日期"])));
+                keys = Array.from(new Set(data.map((datum) => datum[keyHint])));
+
+                // make sure dates are listed according to real time order;
+                alldates = alldates.sort(function (a, b) {
+                    return new Date(b.date) - new Date(a.date);
+                });
+                dates = alldates;
+
+                // re-arrange the data sequentially;
+                sequential = [];
+                alldates.forEach((datum) => {
+                    sequential.push([]);
+                });
+                data.forEach((datum) => {
+                    sequential[alldates.indexOf(datum["日期"])].push(datum);
+                });
+
+                // initialize the chart;
+                renderinit(data, sequential[0]);
+
+                // set the animation interval;
+                let c = 0;
+                intervalId = setInterval(function () {
+                    if (c >= alldates.length) {
+                        console.log("time to close this animation");
+                        clearInterval(intervalId);
+                    } else {
+                        renderupdate(sequential[c]);
+                        c = c + 1;
+                    }
+                }, aduration);
+
+            });
+        }
+    </script>
+
+    <br />
+    <h1>请输入坐标轴</h1>
+    X轴:<br />
+    <input id="x_A" type="text" />
+    <br />
+    Y轴:<br />
+    <input id="y_A" type="text" />
+    <br />
+    半径:<br />
+    <input id="r_A" type="text" />
+    <br /><br />
+    <input type="submit" value="提交" onclick="test()" />
+    <br /><br />
+
+
+</body>
+
+</html>
