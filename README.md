@@ -4,7 +4,7 @@ This is my project for Information Visualization course, in which I build a webp
 
 ## Build
 
-Run 'python main.py' in command line to start the host. Then input 'http://localhost:12345/Cov' in Web Browser address bar to see the target webpage.
+Run 'python main.py' in command line to start the host, then input 'http://localhost:12345/Cov' in Web Browser address bar to see the target webpage.
 
 ## Guideline
 
