@@ -1,6 +1,6 @@
 ## Introdution
 
-This is my project for Information Visualization course, in which I build a webpage consisting a map of the world and dynamic bubble chart elaborating Covid data.
+This is my project for Information Visualization course, in which I build a webpage consisting a map of the world and a dynamic bubble chart elaborating Covid data.
 
 ## Build
 
